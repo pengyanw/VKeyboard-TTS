@@ -83,7 +83,7 @@ class AdjustableKeyboard:
     def create_keyboard(self):
         """Create the keyboard layout and add buttons."""
         keyboard_layout = [
-            ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '←', 'Clear', 'Enter', 'Speak'],
+            ['←', 'Clear', 'Enter', 'Speak'],
             ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],
             ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'],
             ['Z', 'X', 'C', 'V', 'B', 'N', 'M', '.', ' ']
@@ -138,7 +138,7 @@ class AdjustableKeyboard:
 
         # Button font size slider
         tk.Label(control_frame, text="Button Font Size:").pack(side=tk.LEFT, padx=10)
-        font_size_slider = tk.Scale(control_frame, from_=8, to=20, orient="horizontal",
+        font_size_slider = tk.Scale(control_frame, from_=8, to=50, orient="horizontal",
                                     variable=self.button_font_size,
                                     command=lambda x: self.update_button_font_size())
         font_size_slider.pack(side=tk.LEFT, padx=10)
