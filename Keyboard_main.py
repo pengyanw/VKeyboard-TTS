@@ -44,7 +44,7 @@ class AdjustableKeyboard:
 
     def create_text_entry(self):
         """Create the text entry field."""
-        self.text_entry = tk.Entry(self.root, font=("Arial", 3))
+        self.text_entry = tk.Entry(self.root, font=("Arial", 20))
         self.text_entry.grid(row=0, column=0, columnspan=12, sticky="nsew", padx=10, pady=10)
 
     def on_key_press(self, key):
@@ -64,9 +64,9 @@ class AdjustableKeyboard:
     def update_button_sizes(self):
         """Update the width and height of all buttons based on slider values."""
         for row in self.buttons:
-            if row != 1:
+            if row == 1:
                 for button in row:
-                    button.config(width=self.button_width.get() * 2, height=self.button_height.get())
+                    button.config(width=self.button_width.get() * 20, height=self.button_height.get())
 
     def update_button_font_size(self):
         """Update the font size of all buttons based on slider value."""
@@ -82,6 +82,50 @@ class AdjustableKeyboard:
         self.clear_text()  # Clear the text entry field
 
     def create_keyboard(self):
+        """Create the keyboard layout with wider first row buttons using columnspan."""
+        keyboard_layout = [
+            ['←', 'Clear', 'Enter', 'Speak'],  # First row
+            ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],  # Second row
+            ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'],  # Third row
+            ['Z', 'X', 'C', 'V', 'B', 'N', 'M', '.', ' ']  # Fourth row
+        ]
+
+        for row_index, row in enumerate(keyboard_layout, start=1):
+            self.root.grid_rowconfigure(row_index, weight=1)  # Configure row resizing
+
+            button_row = []
+
+            for col_index, key in enumerate(row):
+                # Configure grid columns for uniform resizing
+                self.root.grid_columnconfigure(col_index, weight=1)
+
+                if row_index == 1:
+                    # For the first row, make buttons span two columns for wider appearance
+                    btn = tk.Button(self.root, text=key, command=self.get_button_command(key), height=2)
+                    btn.grid(row=row_index, column=col_index * 2, columnspan=2, sticky="nsew", padx=2, pady=2)
+                else:
+                    # Default size and placement for other rows
+                    btn = tk.Button(self.root, text=key, command=self.get_button_command(key), width=5, height=2)
+                    btn.grid(row=row_index, column=col_index, sticky="nsew", padx=2, pady=2)
+                button_row.append(btn)
+            self.buttons.append(button_row)
+        self.update_button_sizes()
+        self.update_button_font_size()
+
+    def get_button_command(self, key):
+        """Return the appropriate command for a given key."""
+        if key == "←":
+            return self.delete_last
+        elif key == "Clear":
+            return self.clear_text
+        elif key == "Enter":
+            return self.submit_and_clear_input
+        elif key == "Speak":
+            return self.speak_text
+        else:
+            return lambda k=key: self.on_key_press(k)
+
+    def create_keyboard1(self):
         """Create the keyboard layout and add buttons."""
         keyboard_layout = [
             ['←', 'Clear', 'Enter', 'Speak'],
@@ -120,19 +164,6 @@ class AdjustableKeyboard:
             self.update_button_sizes()
             self.update_button_font_size()
 
-    def get_button_command(self, key):
-        """Return the appropriate command for a given key."""
-        if key == "←":
-            return self.delete_last
-        elif key == "Clear":
-            return self.clear_text
-        elif key == "Enter":
-            return self.submit_and_clear_input
-        elif key == "Speak":
-            return self.speak_text
-        else:
-            return lambda k=key: self.on_key_press(k)
-
     def create_size_controls(self):
         """Create sliders for adjusting button width, height, and font size."""
         control_frame = tk.Frame(self.root)
@@ -154,7 +185,7 @@ class AdjustableKeyboard:
 
         # Button font size slider
         tk.Label(control_frame, text="Button Font Size:").pack(side=tk.LEFT, padx=10)
-        font_size_slider = tk.Scale(control_frame, from_=30, to=50, orient="horizontal",
+        font_size_slider = tk.Scale(control_frame, from_=25, to=38, orient="horizontal",
                                     variable=self.button_font_size,
                                     command=lambda x: self.update_button_font_size())
         font_size_slider.pack(side=tk.LEFT, padx=10)
