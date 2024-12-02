@@ -1,12 +1,18 @@
 import tkinter as tk
 import pyttsx3
 import time
+import numpy as np
 import threading
 import os
+import matplotlib.pyplot as plt
+from collections import deque
+from Tune_function import MouseInputEstimator  # Import the EMA filter class
 
 class AdjustableKeyboard:
     def __init__(self):
         # Initialize the main application window
+        self.flag = 0
+        self.ini = time.time()
         self.root = tk.Tk()
         self.root.title("Adjustable Virtual Keyboard with Cursor Coordinates")
         self.root.geometry("1600x800")
@@ -34,11 +40,18 @@ class AdjustableKeyboard:
         self.coordinates_label = tk.Label(self.root, text="Cursor coordinates: x=0, y=0", font=("Timesnewroman", 10))
         self.coordinates_label.grid(row=6, column=0, columnspan=12, sticky="w", padx=10, pady=5)
 
+        # Initialize the EMA filter
+        self.ema_filter = MouseInputEstimator(n=20, alpha=0.5)  # Adjust 'n' and 'alpha' as needed
+
+        # Other initializations
+        self.mouse_coordinates = []  # Buffer to store raw mouse coordinates
+        self.filtered_coordinates = []  # Buffer to store EMA-filtered coordinates
+
+        # Start capturing mouse coordinates
+        self.capture_mouse_coordinates()
+
         # Start updating the coordinates
         self.get_cursor_coordinates()
-
-        self.mouse_coordinates = []  # Buffer to store recent 20 mouse coordinates
-        self.capture_mouse_coordinates()
 
         # Start the main loop
         self.root.mainloop()
@@ -191,13 +204,7 @@ class AdjustableKeyboard:
                                     command=lambda x: self.update_button_font_size())
         font_size_slider.pack(side=tk.LEFT, padx=10)
 
-    def get_cursor_coordinates(self):
-        """Get and display the current cursor coordinates relative to the application window."""
-        x = self.root.winfo_pointerx() - self.root.winfo_rootx()
-        y = self.root.winfo_pointery() - self.root.winfo_rooty()
-        self.coordinates_label.config(text=f"Cursor coordinates: x={x}, y={y}")
-        # Schedule the function to run again after a short delay for continuous updating
-        self.root.after(100, self.get_cursor_coordinates)
+
 
     def speak_text(self):
         """Convert the current text input to speech in a separate thread."""
@@ -218,7 +225,7 @@ class AdjustableKeyboard:
         file_path = os.path.join(output_dir, file_name)
     
         # Save audio to WAV file
-        self.tts_engine.save_to_file(text, file_path)
+        #self.tts_engine.save_to_file(text, file_path)
     
         # Speak the text
         self.tts_engine.say(text)
@@ -273,24 +280,90 @@ class AdjustableKeyboard:
         print(f"Volume: {self.tts_engine.getProperty('volume')}")
         print(f"Voice: {self.voices[self.current_voice_index].name} (ID: {self.voices[self.current_voice_index].id})")
 
-    def capture_mouse_coordinates(self):
-        """Capture and store the recent 20 changes of mouse coordinates."""
-        # Get the current cursor coordinates
+    def get_cursor_coordinates(self):
+        """Get and display the current cursor coordinates relative to the application window."""
+        # Get raw cursor coordinates
         x = self.root.winfo_pointerx() - self.root.winfo_rootx()
         y = self.root.winfo_pointery() - self.root.winfo_rooty()
 
-        # Add the current coordinates to the buffer
-        self.mouse_coordinates.append((x, y))
+        # Add raw coordinates to the EMA filter
+        self.ema_filter.add_mouse_input(x, y)
+        self.ema_filter.add_estimation_input(x, y)  # Use raw coordinates for estimation (can be modified)
 
-        # Keep only the last 20 entries
-        if len(self.mouse_coordinates) > 20:
-            self.mouse_coordinates.pop(0)
+        # Retrieve the current EMA-filtered value
+        filtered_x, filtered_y = self.ema_filter.get_current_ema()[-1]  # Get the latest filtered coordinates
 
-        # Print the buffer for debugging (optional)
-        print(f"Mouse Coordinates Buffer: {self.mouse_coordinates}")
+        # Update coordinates label with both raw and filtered values
+        self.coordinates_label.config(
+            text=f"Raw: x={x}, y={y} | Filtered: x={int(filtered_x)}, y={int(filtered_y)}"
+        )
+
+        # Schedule the next update
+        self.root.after(100, self.get_cursor_coordinates)
+
+    def capture_mouse_coordinates(self):
+        """Capture and store the recent 10 seconds of mouse coordinates and plot them."""
+        # Get raw cursor coordinates
+        x = self.root.winfo_pointerx() - self.root.winfo_rootx()
+        y = self.root.winfo_pointery() - self.root.winfo_rooty()
+
+        # Add raw coordinates to the buffer
+        self.mouse_coordinates.append((time.time(), x, y))  # Store with a timestamp
+
+        # Keep only coordinates from the last 10 seconds
+        current_time = time.time()
+        self.mouse_coordinates = [
+            coord for coord in self.mouse_coordinates if current_time - coord[0] <= 10
+        ]
+
+        # Add raw coordinates to EMA filter and retrieve filtered value
+        self.ema_filter.add_mouse_input(x, y)
+        self.ema_filter.add_estimation_input(x, y)
+        filtered_x, filtered_y = self.ema_filter.get_current_ema()[-1]
+
+        # Add filtered coordinates to the filtered buffer
+        self.filtered_coordinates.append((time.time()+10, filtered_x, filtered_y))
+
+        if current_time - self.ini >= 10 and (self.flag == 0):
+            self.filtered_coordinates = [
+            coord for coord in self.filtered_coordinates
+            ]
+            # Plot raw and filtered coordinates
+            self.plot_coordinates()
+            self.flag += 1
+
 
         # Schedule the next update after 10ms
-        self.root.after(1000, self.capture_mouse_coordinates)
+        self.root.after(10, self.capture_mouse_coordinates)
+
+    def plot_coordinates(self):
+        """Plot raw and filtered mouse coordinates."""
+        if not self.mouse_coordinates or not self.filtered_coordinates:
+            return
+
+        # Extract timestamps and coordinates
+        raw_timestamps, raw_x, raw_y = zip(*self.mouse_coordinates)
+        filtered_timestamps, filtered_x, filtered_y = zip(*self.filtered_coordinates)
+
+        plt.figure(figsize=(10, 6))
+        plt.subplot(2, 1, 1)
+        plt.plot(raw_timestamps, raw_x, label="Raw X", color="red")
+        plt.plot(filtered_timestamps, filtered_x, label="Filtered X", color="blue")
+        plt.xlabel("Time (s)")
+        plt.ylabel("X Coordinate")
+        plt.legend()
+        plt.grid(True)
+
+        plt.subplot(2, 1, 2)
+        plt.plot(raw_timestamps, raw_y, label="Raw Y", color="orange")
+        plt.plot(filtered_timestamps, filtered_y, label="Filtered Y", color="green")
+        plt.xlabel("Time (s)")
+        plt.ylabel("Y Coordinate")
+        plt.legend()
+        plt.grid(True)
+
+        plt.tight_layout()
+        plt.show()
 
 
 # Run the AdjustableKeyboard

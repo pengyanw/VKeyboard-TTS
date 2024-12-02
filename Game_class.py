@@ -5,6 +5,10 @@ import os
 import numpy as np
 import scipy
 
+
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
+
 class ClickToKillGame:
     def __init__(self, screen_width=800, screen_height=600, target_count=5):
         """
@@ -24,13 +28,13 @@ class ClickToKillGame:
         self.target_image = pygame.image.load("target.png")  # Replace with your image
         self.target_image = pygame.transform.scale(self.target_image, (50, 50))
 
-        self.background_color = (255, 255, 127)
+        self.background_color = (0, 0, 0)
         self.clock = pygame.time.Clock()
         self.targets = []
         self.target_count = target_count
         self.score = 0
 
-        self.difficulty = np.int16(3)
+        self.difficulty = np.int16(2)
 
         # Spawn targets
         for _ in range(target_count):
@@ -41,8 +45,8 @@ class ClickToKillGame:
         """Spawn a new target at a random position with a random speed."""
         x = random.randint(0, self.screen_width - 50)
         y = random.randint(0, self.screen_height - 50)
-        speed_x = random.choice([-2, 2])/self.difficulty
-        speed_y = random.choice([-2, 2])/self.difficulty
+        speed_x = random.choice([-2, 2])*self.difficulty
+        speed_y = random.choice([-2, 2])*self.difficulty
         self.targets.append({"rect": pygame.Rect(x, y, 50, 50), "speed": (speed_x, speed_y)})
 
     def move_targets(self):
